@@ -25,4 +25,45 @@ samples_filenames:
   - "sample4"
   - "sample5"
 
+
+
+# path to this config file
+this_file: "/scicore/home/zavolan/bakma/snakemake_pipelines/dge_dtu/config.yaml"
+#this_file: "/scicore/home/zavolan/GROUP/dge_dtu/config.yaml"
+
+# scripts directory for this pipeline
+scripts_directory: "scripts"
+
+# genomic annotation file in GTF format
+gtf: "RESOURCES/Homo_sapiens.GRCh38.90.chr.gtf"
+
+# genomic sequence in FASTA format
+genome: "RESOURCES/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa"
+
+# path for the output directory
+output_dir: "sample_output_dir"
+
+# logs directory
+# In case you change the path, please change it in the files: snakemake.cluster_run and snakemake.local_run as well
+logs: "logs"
+
+# path to the experiment design table in TSV format (specified in README)
+design_table: "sample_design_table.tsv"
+
+# sequencing type: 'single_end' vs 'paired_end'
+seqtype: "paired_end"
+
+# minimal gene expression cutoff for filtering in DRIMSeq
+minimal_gene_expression: "10"
+
+# minimal transcripts expression cutoff for filtering in DRIMSeq
+minimal_transcript_expression: "10"
+
+# minimal transcripts proportion for filtering in DRIMSeq
+minimal_transcripts_proportion: "0.1"
+
+# alpha parameter value for testing statistical significance
+statistical_alpha: "0.05"
+
+
 ...

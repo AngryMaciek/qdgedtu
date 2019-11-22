@@ -49,4 +49,106 @@ There are four scripts to start the pipeline, depending on whether you want to r
 
 ## License
 
-'
+--------------------
+
+
+# DGE_DTU
+
+Transcript quantification with salmon; Differential Gene Expression and Differential Transcripts Usage according to: https://f1000research.com/articles/7-952/v3
+
+# Dependencies
+- bash
+- git
+- wget
+- conda (instructions below)
+
+# Download and install miniconda 3 (if not already installed)
+
+This pipeline has been tested with conda version 4.6.7.
+
+## Download installation file
+
+for Linux:
+
+```bash
+wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+```
+
+for Mac OSX:
+```bash
+wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+```
+
+## Installation
+
+Make sure that you run the 'bash' shell and execute:
+
+for Linux:
+```bash
+bash Miniconda3-latest-Linux-x86_64.sh
+```
+
+for Mac:
+```bash
+bash Miniconda3-latest-MacOSX-x86_64.sh
+```
+
+# Clone the repository and install snakemake in a virtual environment
+
+```bash
+git clone https://git.scicore.unibas.ch/AnnotationPipelines/dge_dtu.git
+cd dge_dtu
+conda create -n dge_dtu_snakemake -c conda-forge -c bioconda snakemake=5.4
+conda activate dge_dtu_snakemake
+```
+
+# Download resources
+
+Please download the annotation files as following:
+
+Download the genome from ENSEMBL
+
+```bash
+mkdir -p RESOURCES
+wget ftp://ftp.ensembl.org/pub/release-90/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa.gz
+zcat Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa.gz > RESOURCES/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa
+rm Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa.gz
+```
+
+Download annotation file
+```bash
+wget ftp://ftp.ensembl.org/pub/release-90/gtf/homo_sapiens/Homo_sapiens.GRCh38.90.chr.gtf.gz
+zcat Homo_sapiens.GRCh38.90.chr.gtf.gz > RESOURCES/Homo_sapiens.GRCh38.90.chr.gtf
+rm Homo_sapiens.GRCh38.90.chr.gtf.gz
+```
+
+# User's input
+
+The input consist of two files and only these two files should be adjusted per any workflow execution:
+
+* Main config file for snakemake: `config.yaml`
+which contains all the paths needed for successful workflow execution as well as all the parameters for
+gene/transcript expression analysis. Please go carefully through all the entries and adjust all of them according to your desires.
+
+* A design table with detailed information about sequencing data. A sample design table is available in the repository as `sample_design_table.tsv`.
+The design table is  a TSV file with 4 columns; column names are fixed; first column stands as sample ID; last column represents the condition ('treated' or 'untreated' only);
+2nd and 3rd column are paths to the fastq/fasta files and their order does not matter.
+In case the sequencing data are single-end please provide paths only in the 2nd columnd and leave the 3rd column with empty strings.
+
+
+# Contributions
+
+Contributions are more than welcome, but please follow the following instructions:
+
+Create a new branch
+```bash
+git checkout -b your_feature_branch
+```
+
+Add your changes and push them remotely
+
+```bash
+git push origin your_feature_branch
+```
+
+Create a merge request via the gitlab website: https://git.scicore.unibas.ch/AnnotationPipelines/dge_dtu/merge_requests

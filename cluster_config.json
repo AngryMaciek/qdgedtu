@@ -8,7 +8,7 @@
 "mem":"20G"
 },
 
-"generate_files":
+"copy_configfile":
 {
 "queue":"{params.queue}",
 "time": "{params.time}",
@@ -16,12 +16,52 @@
 "mem":"{resources.mem}"
 },
 
-"merge_results":
+"extract_transcriptome":
 {
 "queue":"{params.queue}",
 "time": "{params.time}",
 "threads":"{resources.threads}",
 "mem":"{resources.mem}"
-}
+},
+
+"index_transcriptome":
+{
+"queue":"{params.queue}",
+"time": "{params.time}",
+"threads":"{resources.threads}",
+"mem":"{resources.mem}"
+},
+
+"salmon_quantify":
+{
+"queue":"{params.queue}",
+"time": "{params.time}",
+"threads":"{resources.threads}",
+"mem":"{resources.mem}"
+},
+
+"merge_TPM_tables":
+{
+"queue":"{params.queue}",
+"time": "{params.time}",
+"threads":"{resources.threads}",
+"mem":"{resources.mem}"
+},
+
+"prepare_table_for_R_workflow":
+{
+"queue":"{params.queue}",
+"time": "{params.time}",
+"threads":"{resources.threads}",
+"mem":"{resources.mem}"
+},
+
+"DTU_and_DGE_workflow":
+{
+"queue":"{params.queue}",
+"time": "{params.time}",
+"threads":"{resources.threads}",
+"mem":"{resources.mem}"
+},
 
 }

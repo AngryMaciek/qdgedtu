@@ -121,3 +121,277 @@ rule merge_results:
         with open(output.TXT_final_results, "w") as outfile:
                 outfile.write("\n".join(numbers))
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+'''
+Snakemake pipeline for gene/transcripts quantification,
+differential gene expression and differential transcript usage.
+
+Maciek Bak
+'''
+
+import os
+import sys
+import pandas as pd
+
+localrules: copy_configfile, merge_TPM_tables, prepare_table_for_R_workflow, final
+
+def get_samples():
+    design_table = pd.read_csv(config["design_table"], sep="\t")
+    return list(design_table["sample"])
+
+def get_mate_1(wildcards):
+    design_table = pd.read_csv(config["design_table"], sep="\t", index_col=0)
+    return str(design_table.loc[wildcards.sample]["fq1"])
+
+def get_mate_2(wildcards):
+    design_table = pd.read_csv(config["design_table"], sep="\t", index_col=0)
+    return str(design_table.loc[wildcards.sample]["fq2"])
+
+#################################################################################
+### Target rule with final outfiles
+#################################################################################
+
+rule final:
+    input:
+        all_genes = config["output_dir"] + "/genes.tsv",
+        all_transcripts = config["output_dir"] + "/transcripts.tsv",
+        edgeR = config["output_dir"] + "/edgeR_DGE.tsv",
+        DESeq = config["output_dir"] + "/DESeq_DGE.tsv",
+        DRIMSeq = config["output_dir"] + "/StageR_DRIMSeq.tsv",
+        DEXSeq = config["output_dir"] + "/StageR_DEXSeq.tsv",
+
+#################################################################################
+### Copy the config file to output directory
+#################################################################################
+
+rule copy_configfile:
+    input:
+        configfile = config["this_file"]
+    output:
+        configfile = os.path.join(config["output_dir"],"config.yaml")
+    shell:
+        """
+        cp {input.configfile} {output.configfile}
+        """
+
+#################################################################################
+### Extract transcriptome & biuld index for it
+#################################################################################
+
+rule extract_transcriptome:
+    input:
+        gtf = config["gtf"],
+        genome = config["genome"],
+        configfile = os.path.join(config["output_dir"],"config.yaml")
+    output:
+        transcriptome = config["output_dir"] + "/transcriptome.fasta"
+    params:
+        cluster_log = config["logs"] + "/cluster_log/extract_transcriptome.log",
+        queue = "30min",
+        time = "00:10:00"
+    log:
+        local_log = config["logs"] + "/local_log/extract_transcriptome.log",
+    resources:
+        threads = 8,
+        mem = 5000
+    conda:
+        "envs/cufflinks.yaml"
+    shell:
+        """
+        gffread {input.gtf} \
+        -g {input.genome} \
+        -w {output.transcriptome} \
+        &> {log.local_log};
+        """
+
+rule index_transcriptome:
+    input:
+        transcriptome = config["output_dir"] + "/transcriptome.fasta"
+    output:
+        transcriptome_index = directory(config["output_dir"] + "/transcriptome_index")
+    params:
+        cluster_log = config["logs"] + "/cluster_log/index_transcriptome.log",
+        queue = "30min",
+        time = "00:15:00"
+    log:
+        local_log = config["logs"] + "/local_log/index_transcriptome.log",
+    resources:
+        threads = 4,
+        mem = 10000
+    conda:
+        "envs/salmon.yaml"
+    shell:
+        """
+        salmon index \
+        -t {input.transcriptome} \
+        -i {output.transcriptome_index} \
+        --type quasi \
+        -k 31 \
+        &> {log.local_log};
+        """
+
+#################################################################################
+### Quantify transcripts expression
+#################################################################################
+
+rule salmon_quantify:
+    input:
+        index = config["output_dir"] + "/transcriptome_index",
+        gtf = config["gtf"]
+    output:
+        salmon_out = config["output_dir"] + "/{sample}/quant.sf",
+    params:
+        mate_1 = lambda wildcards: get_mate_1(wildcards),
+        mate_2 = lambda wildcards: get_mate_2(wildcards),
+        libType = "A",
+        seqtype = config["seqtype"],
+        salmon_dir = config["output_dir"] + "/{sample}",
+        cluster_log = config["logs"] + "/cluster_log/salmon_quantify_{sample}.log",
+        queue = "6hours",
+        time = "02:00:00",
+    resources:
+        threads = 8,
+        mem = 10000
+    log:
+        local_log = config["logs"] + "/local_log/salmon_quantify_{sample}.log",
+    threads:    6
+    conda:
+        "envs/salmon.yaml"
+    shell:
+        """
+        if [ {params.seqtype} == paired_end ]
+        then
+            salmon quant \
+            --index {input.index} \
+            --geneMap {input.gtf} \
+            --libType {params.libType} \
+            -1 {params.mate_1} \
+            -2 {params.mate_2} \
+            --seqBias \
+            --threads {threads} \
+            --output {params.salmon_dir} \
+            &> {log.local_log};
+        else
+            salmon quant \
+            --index {input.index} \
+            --geneMap {input.gtf} \
+            --libType {params.libType} \
+            -r {params.mate_1} \
+            --seqBias \
+            --threads {threads} \
+            --output {params.salmon_dir} \
+            &> {log.local_log};
+        fi        
+       """
+
+rule merge_TPM_tables:
+    input:
+        salmon_out = expand(config["output_dir"] + "/{sample}/quant.sf", output_dir=config["output_dir"], sample=get_samples())
+    output:
+        all_genes = config["output_dir"] + "/genes.tsv",
+        all_transcripts = config["output_dir"] + "/transcripts.tsv",
+    params:
+        cluster_log = config["logs"] + "/cluster_log/merge_TPM_tables.log",
+        queue = "30min",
+        time = "00:05:00"
+    log:
+        local_log = config["logs"] + "/local_log/merge_TPM_tables.log",
+    resources:
+        threads = 1,
+        mem = 5000
+    run:
+        quant_genes_list = []
+        quant_transcripts_list = []
+        design_table = pd.read_csv(config["design_table"],sep="\t")
+        for i,row in design_table.iterrows():
+            path = os.path.join(config["output_dir"],row["sample"],"quant.sf")
+            df = pd.read_csv(path,sep="\t",index_col=0)[["TPM"]]
+            df.columns = [row["sample"]]
+            quant_transcripts_list.append(df)
+            path = os.path.join(config["output_dir"],row["sample"],"quant.genes.sf")
+            df = pd.read_csv(path,sep="\t",index_col=0)[["TPM"]]
+            df.columns = [row["sample"]]
+            quant_genes_list.append(df)
+        x = pd.concat(quant_transcripts_list,axis=1)
+        x.index.name = "ID"
+        x.to_csv(output.all_transcripts,sep="\t")
+        x = pd.concat(quant_genes_list,axis=1)
+        x.index.name = "ID"
+        x.to_csv(output.all_genes,sep="\t")
+
+#################################################################################
+### DTU + DGE workflow
+#################################################################################
+
+rule prepare_table_for_R_workflow:
+    input:
+        salmon_out = expand(config["output_dir"] + "/{sample}/quant.sf", output_dir=config["output_dir"], sample=get_samples())
+    output:
+        table = config["output_dir"] + "/workflow_table.csv"
+    params:
+        cluster_log = config["logs"] + "/cluster_log/prepare_table.log",
+        queue = "30min",
+        time = "00:05:00"
+    log:
+        local_log = config["logs"] +"/local_log/prepare_table.log",
+    resources:
+        threads = 1,
+        mem = 5000
+    run:
+        design_table = pd.read_csv(config["design_table"],sep="\t")
+        with open(output.table,"w") as csv_table:
+            csv_table.write("sample_id,condition\n")
+            for i,row in design_table.iterrows():
+                condition = 1 if row["condition"]=="untreated" else 2
+                csv_table.write(row["sample"]+","+str(condition)+"\n")
+
+rule DTU_and_DGE_workflow:
+    input:
+        table = config["output_dir"] + "/workflow_table.csv",
+        SCRIPT = os.path.join(config["scripts_directory"], "mb_DTU_and_DGE_workflow.R")
+    output:
+        edgeR = config["output_dir"] + "/edgeR_DGE.tsv",
+        DESeq = config["output_dir"] + "/DESeq_DGE.tsv",
+        DRIMSeq = config["output_dir"] + "/StageR_DRIMSeq.tsv",
+        DEXSeq = config["output_dir"] + "/StageR_DEXSeq.tsv",
+    params:
+        out_dir = config["output_dir"],
+        minimal_gene_expression = config["minimal_gene_expression"],
+        minimal_transcript_expression = config["minimal_transcript_expression"],
+        minimal_transcripts_proportion = config["minimal_transcripts_proportion"],
+        alpha = config["statistical_alpha"],
+        gtf = config["gtf"],
+        cluster_log = config["logs"] + "/cluster_log/DTU_and_DGE_workflow.log",
+        queue = "6hours",
+        time = "02:00:00"
+    log:
+        local_log = config["logs"] + "/local_log/DTU_and_DGE_workflow.log",
+    resources:
+        threads = 1,
+        mem = 10000
+    conda:
+        "envs/dge_dtu.yaml"
+    shell:
+        """
+        Rscript {input.SCRIPT} \
+        --gtf {params.gtf} \
+        --design_table {input.table} \
+        --output_dir {params.out_dir} \
+        --alpha {params.alpha} \
+        --minimal_gene_expression {params.minimal_gene_expression} \
+        --minimal_transcript_expression {params.minimal_transcript_expression} \
+        --minimal_proportion {params.minimal_transcripts_proportion} \
+        &> {log.local_log};
+        """
