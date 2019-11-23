@@ -23,10 +23,6 @@ genome: "../../RESOURCES/Homo_sapiens.GRCh38.dna.primary_assembly.fa"
 # path for the output directory
 output_dir: "sample_output_dir"
 
-# logs directory
-# In case you change the path, please change it in the files: snakemake.cluster_run and snakemake.local_run as well
-logs: "logs"
-
 # path to the experiment design table in TSV format (specified in README)
 design_table: "sample_design_table.tsv"
 
