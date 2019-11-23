@@ -126,7 +126,7 @@ rule merge_results:
 
 
 # local rules
-localrules: create_output_dir, all
+localrules: all, create_output_dir, merge_TPM_tables, prepare_table_for_R_workflow
 
 #localrules: copy_configfile, merge_TPM_tables, prepare_table_for_R_workflow, final
 
@@ -173,7 +173,6 @@ rule create_output_dir:
     shell:
         """
         mkdir -p {params.DIR_results_dir}; \
-        mkdir -p {params.DIR_random_samples}; \
         mkdir -p {params.DIR_cluster_log}; \
         mkdir -p {log.DIR_local_log}; \
         touch {output.TMP_output}
@@ -199,24 +198,26 @@ rule extract_transcriptome:
         genome = config["genome"],
         TMP_output = os.path.join(config["output_dir"], "dir_created"),
     output:
-        transcriptome = config["output_dir"] + "/transcriptome.fasta"
+        transcriptome = "{output_dir}" + "/transcriptome.fasta"
     params:
-        cluster_log = config["logs"] + "/cluster_log/extract_transcriptome.log",
+        LOG_cluster_log = \
+            os.path.join("{output_dir}", "cluster_log/extract_transcriptome.log"),
         queue = "30min",
         time = "00:10:00"
     log:
-        local_log = config["logs"] + "/local_log/extract_transcriptome.log",
+        LOG_local_log = \
+            os.path.join("{output_dir}", "local_log/extract_transcriptome.log"),
     resources:
         threads = 8,
         mem = 5000
     conda:
-        "packages.yaml"
+        "env_yaml/quantification.yaml"
     shell:
         """
         gffread {input.gtf} \
         -g {input.genome} \
         -w {output.transcriptome} \
-        &> {log.local_log};
+        &> {log.LOG_local_log};
         """
 
 
@@ -233,18 +234,20 @@ rule index_transcriptome:
     input:
         transcriptome = config["output_dir"] + "/transcriptome.fasta"
     output:
-        transcriptome_index = directory(config["output_dir"] + "/transcriptome_index")
+        transcriptome_index = directory("{output_dir}" + "/transcriptome_index")
     params:
-        cluster_log = config["logs"] + "/cluster_log/index_transcriptome.log",
+        LOG_cluster_log = \
+            os.path.join("{output_dir}", "cluster_log/index_transcriptome.log"),
         queue = "30min",
         time = "00:15:00"
     log:
-        local_log = config["logs"] + "/local_log/index_transcriptome.log",
+        LOG_local_log = \
+            os.path.join("{output_dir}", "local_log/index_transcriptome.log"),
     resources:
         threads = 4,
         mem = 10000
     conda:
-        "packages.yaml"
+        "env_yaml/quantification.yaml"
     shell:
         """
         salmon index \
@@ -252,7 +255,7 @@ rule index_transcriptome:
         -i {output.transcriptome_index} \
         --type quasi \
         -k 31 \
-        &> {log.local_log};
+        &> {log.LOG_local_log};
         """
 
 #################################################################################
@@ -264,24 +267,26 @@ rule salmon_quantify:
         index = config["output_dir"] + "/transcriptome_index",
         gtf = config["gtf"]
     output:
-        salmon_out = config["output_dir"] + "/{sample}/quant.sf",
+        salmon_out = "{output_dir}" + "/{sample}/quant.sf",
     params:
         mate_1 = lambda wildcards: get_mate_1(wildcards),
         mate_2 = lambda wildcards: get_mate_2(wildcards),
         libType = "A",
         seqtype = config["seqtype"],
         salmon_dir = config["output_dir"] + "/{sample}",
-        cluster_log = config["logs"] + "/cluster_log/salmon_quantify_{sample}.log",
+        LOG_cluster_log = \
+            os.path.join("{output_dir}", "cluster_log/salmon_quantify_{sample}.log"),
         queue = "6hours",
         time = "02:00:00",
     resources:
         threads = 8,
         mem = 10000
     log:
-        local_log = config["logs"] + "/local_log/salmon_quantify_{sample}.log",
+        LOG_local_log = \
+            os.path.join("{output_dir}", "local_log/salmon_quantify_{sample}.log"),
     threads:    6
     conda:
-        "packages.yaml"
+        "env_yaml/quantification.yaml"
     shell:
         """
         if [ {params.seqtype} == paired_end ]
@@ -295,7 +300,7 @@ rule salmon_quantify:
             --seqBias \
             --threads {threads} \
             --output {params.salmon_dir} \
-            &> {log.local_log};
+            &> {log.LOG_local_log};
         else
             salmon quant \
             --index {input.index} \
@@ -305,7 +310,7 @@ rule salmon_quantify:
             --seqBias \
             --threads {threads} \
             --output {params.salmon_dir} \
-            &> {log.local_log};
+            &> {log.LOG_local_log};
         fi        
        """
 
@@ -313,14 +318,14 @@ rule merge_TPM_tables:
     input:
         salmon_out = expand(config["output_dir"] + "/{sample}/quant.sf", output_dir=config["output_dir"], sample=get_samples())
     output:
-        all_genes = config["output_dir"] + "/genes.tsv",
-        all_transcripts = config["output_dir"] + "/transcripts.tsv",
+        all_genes = "{output_dir}" + "/genes.tsv",
+        all_transcripts = "{output_dir}" + "/transcripts.tsv",
     params:
-        cluster_log = config["logs"] + "/cluster_log/merge_TPM_tables.log",
         queue = "30min",
         time = "00:05:00"
     log:
-        local_log = config["logs"] + "/local_log/merge_TPM_tables.log",
+        LOG_local_log = \
+            os.path.join("{output_dir}", "local_log/merge_TPM_tables.log"),
     resources:
         threads = 1,
         mem = 5000
@@ -352,13 +357,13 @@ rule prepare_table_for_R_workflow:
     input:
         salmon_out = expand(config["output_dir"] + "/{sample}/quant.sf", output_dir=config["output_dir"], sample=get_samples())
     output:
-        table = config["output_dir"] + "/workflow_table.csv"
+        table = "{output_dir}"+ "/workflow_table.csv"
     params:
-        cluster_log = config["logs"] + "/cluster_log/prepare_table.log",
         queue = "30min",
         time = "00:05:00"
     log:
-        local_log = config["logs"] +"/local_log/prepare_table.log",
+        LOG_local_log = \
+            os.path.join("{output_dir}", "local_log/prepare_table.log"),
     resources:
         threads = 1,
         mem = 5000
@@ -375,10 +380,10 @@ rule DTU_and_DGE_workflow:
         table = config["output_dir"] + "/workflow_table.csv",
         SCRIPT = os.path.join(config["scripts_directory"], "mb_DTU_and_DGE_workflow.R")
     output:
-        edgeR = config["output_dir"] + "/edgeR_DGE.tsv",
-        DESeq = config["output_dir"] + "/DESeq_DGE.tsv",
-        DRIMSeq = config["output_dir"] + "/StageR_DRIMSeq.tsv",
-        DEXSeq = config["output_dir"] + "/StageR_DEXSeq.tsv",
+        edgeR = "{output_dir}" + "/edgeR_DGE.tsv",
+        DESeq = "{output_dir}" + "/DESeq_DGE.tsv",
+        DRIMSeq = "{output_dir}" + "/StageR_DRIMSeq.tsv",
+        DEXSeq = "{output_dir}" + "/StageR_DEXSeq.tsv",
     params:
         out_dir = config["output_dir"],
         minimal_gene_expression = config["minimal_gene_expression"],
@@ -386,16 +391,18 @@ rule DTU_and_DGE_workflow:
         minimal_transcripts_proportion = config["minimal_transcripts_proportion"],
         alpha = config["statistical_alpha"],
         gtf = config["gtf"],
-        cluster_log = config["logs"] + "/cluster_log/DTU_and_DGE_workflow.log",
+        LOG_cluster_log = \
+            os.path.join("{output_dir}", "cluster_log/DTU_and_DGE_workflow.log"),
         queue = "6hours",
-        time = "02:00:00"
+        time = "06:00:00"
     log:
-        local_log = config["logs"] + "/local_log/DTU_and_DGE_workflow.log",
+        LOG_local_log = \
+            os.path.join("{output_dir}", "local_log/DTU_and_DGE_workflow.log"),
     resources:
         threads = 1,
         mem = 10000
     conda:
-        "packages.yaml"
+        "env_yaml/dgedtu.yaml"
     shell:
         """
         Rscript {input.SCRIPT} \
@@ -406,5 +413,5 @@ rule DTU_and_DGE_workflow:
         --minimal_gene_expression {params.minimal_gene_expression} \
         --minimal_transcript_expression {params.minimal_transcript_expression} \
         --minimal_proportion {params.minimal_transcripts_proportion} \
-        &> {log.local_log};
+        &> {log.LOG_local_log};
         """
