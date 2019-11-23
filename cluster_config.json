@@ -8,14 +8,6 @@
 "mem":"20G"
 },
 
-"copy_configfile":
-{
-"queue":"{params.queue}",
-"time": "{params.time}",
-"threads":"{resources.threads}",
-"mem":"{resources.mem}"
-},
-
 "extract_transcriptome":
 {
 "queue":"{params.queue}",
@@ -33,22 +25,6 @@
 },
 
 "salmon_quantify":
-{
-"queue":"{params.queue}",
-"time": "{params.time}",
-"threads":"{resources.threads}",
-"mem":"{resources.mem}"
-},
-
-"merge_TPM_tables":
-{
-"queue":"{params.queue}",
-"time": "{params.time}",
-"threads":"{resources.threads}",
-"mem":"{resources.mem}"
-},
-
-"prepare_table_for_R_workflow":
 {
 "queue":"{params.queue}",
 "time": "{params.time}",
