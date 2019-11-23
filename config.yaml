@@ -6,30 +6,10 @@
 #   AFFILIATION: Swiss_Institute_of_Bioinformatics
 #   CONTACT: maciej.bak@unibas.ch
 #   CREATED: 22-11-2019
-#   LICENSE: '
+#   LICENSE: GPL v3.0
 #
 ###############################################################################
 ---
-
-# path to the directory with all the scripts and executable files
-src_dir: "src"
-
-# path for the result directory
-output_dir: "output_dir"
-
-# file names for the random samples
-samples_filenames:
-  - "sample1"
-  - "sample2"
-  - "sample3"
-  - "sample4"
-  - "sample5"
-
-
-
-# path to this config file
-this_file: "/scicore/home/zavolan/bakma/snakemake_pipelines/dge_dtu/config.yaml"
-#this_file: "/scicore/home/zavolan/GROUP/dge_dtu/config.yaml"
 
 # scripts directory for this pipeline
 scripts_directory: "scripts"
@@ -64,6 +44,5 @@ minimal_transcripts_proportion: "0.1"
 
 # alpha parameter value for testing statistical significance
 statistical_alpha: "0.05"
-
 
 ...

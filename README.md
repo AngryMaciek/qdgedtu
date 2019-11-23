@@ -49,6 +49,8 @@ There are four scripts to start the pipeline, depending on whether you want to r
 
 ## License
 
+GPL v3.0
+
 --------------------
 
 
