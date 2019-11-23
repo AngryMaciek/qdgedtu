@@ -12,13 +12,13 @@
 ---
 
 # scripts directory for this pipeline
-scripts_directory: "scripts"
+scripts_directory: "src"
 
 # genomic annotation file in GTF format
-gtf: "RESOURCES/Homo_sapiens.GRCh38.90.chr.gtf"
+gtf: "../../RESOURCES/Homo_sapiens.GRCh38.87.gtf"
 
 # genomic sequence in FASTA format
-genome: "RESOURCES/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa"
+genome: "../../RESOURCES/Homo_sapiens.GRCh38.dna.primary_assembly.fa"
 
 # path for the output directory
 output_dir: "sample_output_dir"

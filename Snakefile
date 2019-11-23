@@ -1,7 +1,8 @@
 ##############################################################################
 #
 #   Snakemake pipeline:
-#   qdgedtu
+#   Gene/transcripts quantification, Differential Gene Expression
+#   and Differential Transcript Usage.
 #
 #   AUTHOR: Maciej_Bak
 #   AFFILIATION: Swiss_Institute_of_Bioinformatics
@@ -14,19 +15,12 @@
 # imports
 import sys
 import os
+import pandas as pd
 
-# local rules
-localrules: create_output_dir, all
 
-##############################################################################
-### Target rule with final output of the pipeline
-##############################################################################
 
-rule all:
-    input:
-        TXT_final_results = \
-            expand(os.path.join("{output_dir}", "results.txt"),
-                output_dir=config["output_dir"])
+
+'''
 
 ##############################################################################
 ### Create directories for the result
@@ -121,31 +115,20 @@ rule merge_results:
         with open(output.TXT_final_results, "w") as outfile:
                 outfile.write("\n".join(numbers))
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-'''
-Snakemake pipeline for gene/transcripts quantification,
-differential gene expression and differential transcript usage.
-
-Maciek Bak
 '''
 
-import os
-import sys
-import pandas as pd
 
-localrules: copy_configfile, merge_TPM_tables, prepare_table_for_R_workflow, final
+
+
+
+
+
+
+
+# local rules
+localrules: create_output_dir, all
+
+#localrules: copy_configfile, merge_TPM_tables, prepare_table_for_R_workflow, final
 
 def get_samples():
     design_table = pd.read_csv(config["design_table"], sep="\t")
@@ -159,11 +142,11 @@ def get_mate_2(wildcards):
     design_table = pd.read_csv(config["design_table"], sep="\t", index_col=0)
     return str(design_table.loc[wildcards.sample]["fq2"])
 
-#################################################################################
-### Target rule with final outfiles
-#################################################################################
+##############################################################################
+### Target rule with final output of the pipeline
+##############################################################################
 
-rule final:
+rule all:
     input:
         all_genes = config["output_dir"] + "/genes.tsv",
         all_transcripts = config["output_dir"] + "/transcripts.tsv",
@@ -171,20 +154,40 @@ rule final:
         DESeq = config["output_dir"] + "/DESeq_DGE.tsv",
         DRIMSeq = config["output_dir"] + "/StageR_DRIMSeq.tsv",
         DEXSeq = config["output_dir"] + "/StageR_DEXSeq.tsv",
+        #TXT_final_results = \
+        #    expand(os.path.join("{output_dir}", "results.txt"),
+        #        output_dir=config["output_dir"])
 
-#################################################################################
-### Copy the config file to output directory
-#################################################################################
+##############################################################################
+### Create directories for the result
+##############################################################################
 
-rule copy_configfile:
-    input:
-        configfile = config["this_file"]
+rule create_output_dir:
     output:
-        configfile = os.path.join(config["output_dir"],"config.yaml")
+        TMP_output = temp(os.path.join("{output_dir}", "dir_created"))
+    params:
+        DIR_results_dir = "{output_dir}",
+        DIR_cluster_log = os.path.join("{output_dir}", "cluster_log"),
+    log:
+        DIR_local_log = os.path.join("{output_dir}", "local_log"),
     shell:
         """
-        cp {input.configfile} {output.configfile}
+        mkdir -p {params.DIR_results_dir}; \
+        mkdir -p {params.DIR_random_samples}; \
+        mkdir -p {params.DIR_cluster_log}; \
+        mkdir -p {log.DIR_local_log}; \
+        touch {output.TMP_output}
         """
+
+
+
+
+
+
+
+
+
+
 
 #################################################################################
 ### Extract transcriptome & biuld index for it
@@ -194,7 +197,7 @@ rule extract_transcriptome:
     input:
         gtf = config["gtf"],
         genome = config["genome"],
-        configfile = os.path.join(config["output_dir"],"config.yaml")
+        TMP_output = os.path.join(config["output_dir"], "dir_created"),
     output:
         transcriptome = config["output_dir"] + "/transcriptome.fasta"
     params:
@@ -207,7 +210,7 @@ rule extract_transcriptome:
         threads = 8,
         mem = 5000
     conda:
-        "envs/cufflinks.yaml"
+        "packages.yaml"
     shell:
         """
         gffread {input.gtf} \
@@ -215,6 +218,16 @@ rule extract_transcriptome:
         -w {output.transcriptome} \
         &> {log.local_log};
         """
+
+
+
+
+
+
+
+
+
+
 
 rule index_transcriptome:
     input:
@@ -231,7 +244,7 @@ rule index_transcriptome:
         threads = 4,
         mem = 10000
     conda:
-        "envs/salmon.yaml"
+        "packages.yaml"
     shell:
         """
         salmon index \
@@ -268,7 +281,7 @@ rule salmon_quantify:
         local_log = config["logs"] + "/local_log/salmon_quantify_{sample}.log",
     threads:    6
     conda:
-        "envs/salmon.yaml"
+        "packages.yaml"
     shell:
         """
         if [ {params.seqtype} == paired_end ]
@@ -382,7 +395,7 @@ rule DTU_and_DGE_workflow:
         threads = 1,
         mem = 10000
     conda:
-        "envs/dge_dtu.yaml"
+        "packages.yaml"
     shell:
         """
         Rscript {input.SCRIPT} \
