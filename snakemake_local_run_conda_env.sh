@@ -4,4 +4,4 @@ snakemake \
 --use-conda \
 --configfile config.yaml \
 -p \
---cores 2
+--cores 10
