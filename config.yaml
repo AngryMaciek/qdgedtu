@@ -20,6 +20,11 @@ gtf: "../../RESOURCES/Homo_sapiens.GRCh38.87.gtf"
 # genomic sequence in FASTA format
 genome: "../../RESOURCES/Homo_sapiens.GRCh38.dna.primary_assembly.fa"
 
+# path to the directory with transcriptome index
+# if the directory does not exist it will be created based upon the
+# genome and gtf files above
+transcriptome_index: "../../RESOURCES/Homo_sapiens.GRCh38_transcriptome_index"
+
 # path for the output directory
 output_dir: "sample_output_dir"
 
