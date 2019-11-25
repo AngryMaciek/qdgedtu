@@ -25,11 +25,12 @@ macOS:
   bash Miniconda3-latest-MacOSX-x86_64.sh
   source .bashrc
   ```
+### Step 2: Pandas and Snakemake installation
 
-### Step 2: Snakemake installation
-
-Unless a  specific snakemake version is specified explicitly it is most likely the best choice to install the latest version:
+To execute the workflow one would require pandas python library and snakemake workflow menager.  
+Unless a  specific snakemake version is specified explicitly it is most likely the best choice to install the latest versions:
   ```bash
+  conda install -c conda-forge pandas
   conda install -c bioconda snakemake
   ```
 
@@ -37,8 +38,6 @@ In case you are missing some dependancy packages please install them first (with
 
 ### Step 3: Pipeline execution
 Specify all the required information (input/output/parameters) in the config.yaml 
-
-
 
 The input consist of two files and only these two files should be adjusted per any workflow execution:
 
@@ -69,12 +68,12 @@ In case the sequencing data are single-end please provide paths only in the 2nd 
 
 
 
-Write a DAG (directed acyclic graph) into dag.pdf:
+Once the metadata are ready write a DAG (directed acyclic graph) into dag.pdf:
   ```bash
   bash snakemake_dag_run.sh
   ```
 
-There are four scripts to start the pipeline, depending on whether you want to run locally/on a SLURM computational cluster and if you prefer to use conda virtual environment or a specific container from dockerhub. In order to use singularity containers you need to have `singularity` installed. For the cluster execution it might be required to adapt the 'cluster_config.json' and submission scripts before starting the run.
+There are two scripts to start the pipeline, depending on whether you want to run locally or on a SLURM computational cluster. In order to execute the workflow snakemake automatically creates internal conda virtual environments and installs software from anaconda cloud service. For the cluster execution it might be required to adapt the 'cluster_config.json' and submission scripts before starting the run.
   ```bash
   bash snakemake_local_run_conda_env.sh
   bash snakemake_cluster_run_conda_env.sh
