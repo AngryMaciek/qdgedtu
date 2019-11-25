@@ -17,127 +17,22 @@ import sys
 import os
 import pandas as pd
 
-
-
-
-'''
-
-##############################################################################
-### Create directories for the result
-##############################################################################
-
-rule create_output_dir:
-    output:
-        TMP_output = temp(os.path.join("{output_dir}", "dir_created"))
-    params:
-        DIR_random_samples = os.path.join("{output_dir}", "random_samples"),
-        DIR_results_dir = "{output_dir}",
-        DIR_cluster_log = os.path.join("{output_dir}", "cluster_log"),
-    log:
-        DIR_local_log = os.path.join("{output_dir}", "local_log"),
-    shell:
-        """
-        mkdir -p {params.DIR_results_dir}; \
-        mkdir -p {params.DIR_random_samples}; \
-        mkdir -p {params.DIR_cluster_log}; \
-        mkdir -p {log.DIR_local_log}; \
-        touch {output.TMP_output}
-        """
-
-##############################################################################
-### Sample some random data
-##############################################################################
-
-rule generate_files:
-    input:
-        TMP_output = os.path.join("{output_dir}", "dir_created"),
-        SCRIPT = \
-            os.path.join(config["src_dir"], "mb_random_sample.py")
-    output:
-        TXT_random_sample = \
-            os.path.join("{output_dir}", "random_samples", "{file}")
-    params:
-        LOG_cluster_log = \
-            os.path.join("{output_dir}", "cluster_log", \
-                "generate_files_{file}.log"),
-        queue = "30min",
-        time = "0:05:00"
-    log:
-        LOG_local_log = \
-            os.path.join("{output_dir}", "local_log", \
-                "generate_files_{file}.log"),
-    resources:
-        threads = 1,
-        mem = 5000
-    benchmark:
-        os.path.join("{output_dir}",
-            "cluster_log", "generate_files_{file}_benchmark.log")
-    conda:
-        "packages.yaml"
-    singularity:
-        ""
-    shell:
-        """
-        python {input.SCRIPT} \
-        --outfile {output.TXT_random_sample} \
-        &> {log.LOG_local_log};
-        """
-
-##############################################################################
-### Merge the results
-##############################################################################
-
-rule merge_results:
-    input:
-        TXT_result_files = \
-            lambda wildcards: [os.path.join(wildcards.output_dir,
-                "random_samples", f) for f in config["samples_filenames"]]
-    output:
-        TXT_final_results = os.path.join("{output_dir}", "results.txt")
-    params:
-        LOG_cluster_log = \
-            os.path.join("{output_dir}", "cluster_log/merge_results.log"),
-        queue = "30min",
-        time = "00:05:00"
-    resources:
-        threads = 1,
-        mem = 5000
-    log:
-        LOG_local_log = \
-            os.path.join("{output_dir}", "local_log", "merge_results.log")
-    run:
-        # read all the sampled numbers:
-        numbers = []
-        for i in input.TXT_result_files:
-            with open(i) as f:
-                numbers.append(f.read().splitlines()[0])
-        # save into one file:
-        with open(output.TXT_final_results, "w") as outfile:
-                outfile.write("\n".join(numbers))
-
-'''
-
-
-
-
-
-
-
-
-
 # local rules
-localrules: all, create_output_dir, merge_TPM_tables, prepare_table_for_R_workflow
+localrules: all, create_output_dir, create_index_dir, extract_decoys, \
+    concatenate_transcriptome_and_genome, merge_TPM_tables, \
+    prepare_table_for_R_workflow
 
-#localrules: copy_configfile, merge_TPM_tables, prepare_table_for_R_workflow, final
-
+# get all sample names from the design table
 def get_samples():
     design_table = pd.read_csv(config["design_table"], sep="\t")
     return list(design_table["sample"])
 
+# get mate1 of the RNA-Seq data for a given sample
 def get_mate_1(wildcards):
     design_table = pd.read_csv(config["design_table"], sep="\t", index_col=0)
     return str(design_table.loc[wildcards.sample]["fq1"])
 
+# get mate2 of the RNA-Seq data for a given sample
 def get_mate_2(wildcards):
     design_table = pd.read_csv(config["design_table"], sep="\t", index_col=0)
     return str(design_table.loc[wildcards.sample]["fq2"])
@@ -148,28 +43,37 @@ def get_mate_2(wildcards):
 
 rule all:
     input:
-        all_genes = config["output_dir"] + "/genes.tsv",
-        all_transcripts = config["output_dir"] + "/transcripts.tsv",
-        edgeR = config["output_dir"] + "/edgeR_DGE.tsv",
-        DESeq = config["output_dir"] + "/DESeq_DGE.tsv",
-        DRIMSeq = config["output_dir"] + "/StageR_DRIMSeq.tsv",
-        DEXSeq = config["output_dir"] + "/StageR_DEXSeq.tsv",
-        #TXT_final_results = \
-        #    expand(os.path.join("{output_dir}", "results.txt"),
-        #        output_dir=config["output_dir"])
+        TSV_all_genes = \
+            expand(os.path.join("{output_dir}", "genes.tsv"), \
+                output_dir=config["output_dir"]),
+        TSV_all_transcripts = \
+            expand(os.path.join("{output_dir}", "transcripts.tsv"), \
+                output_dir=config["output_dir"]),
+        TSV_edgeR = \
+            expand(os.path.join("{output_dir}", "edgeR_DGE.tsv"), \
+                output_dir=config["output_dir"]),
+        TSV_DESeq = \
+            expand(os.path.join("{output_dir}", "DESeq_DGE.tsv"), \
+                output_dir=config["output_dir"]),
+        TSV_DRIMSeq = \
+            expand(os.path.join("{output_dir}", "StageR_DRIMSeq.tsv"), \
+                output_dir=config["output_dir"]),
+        TSV_DEXSeq = \
+            expand(os.path.join("{output_dir}", "StageR_DEXSeq.tsv"), \
+                output_dir=config["output_dir"])
 
 ##############################################################################
-### Create directories for the result
+### Create directories for the results
 ##############################################################################
 
 rule create_output_dir:
     output:
-        TMP_output = temp(os.path.join("{output_dir}", "dir_created"))
+        TMP_output = temp(os.path.join("{output_dir}", "output_dir_created"))
     params:
         DIR_results_dir = "{output_dir}",
-        DIR_cluster_log = os.path.join("{output_dir}", "cluster_log"),
+        DIR_cluster_log = os.path.join("{output_dir}", "cluster_log")
     log:
-        DIR_local_log = os.path.join("{output_dir}", "local_log"),
+        DIR_local_log = os.path.join("{output_dir}", "local_log")
     shell:
         """
         mkdir -p {params.DIR_results_dir}; \
@@ -178,113 +82,184 @@ rule create_output_dir:
         touch {output.TMP_output}
         """
 
+##############################################################################
+### Create directories for the transcriptome index
+##############################################################################
 
+rule create_index_dir:
+    output:
+        TMP_index = temp(os.path.join("{index_dir}", "index_dir_created"))
+    params:
+        DIR_index_dir = "{index_dir}",
+        DIR_cluster_log = os.path.join("{index_dir}", "cluster_log")
+    log:
+        DIR_local_log = os.path.join("{index_dir}", "local_log")
+    shell:
+        """
+        mkdir -p {params.DIR_index_dir}; \
+        mkdir -p {params.DIR_cluster_log}; \
+        mkdir -p {log.DIR_local_log}; \
+        touch {output.TMP_index}
+        """
 
-
-
-
-
-
-
-
-
-#################################################################################
+##############################################################################
 ### Extract transcriptome & biuld index for it
-#################################################################################
+##############################################################################
 
 rule extract_transcriptome:
     input:
-        gtf = config["gtf"],
-        genome = config["genome"],
-        TMP_output = os.path.join(config["output_dir"], "dir_created"),
+        TMP_index = os.path.join("{index_dir}", "index_dir_created")
     output:
-        transcriptome = "{output_dir}" + "/transcriptome.fasta"
+        FASTA_transcriptome = \
+            os.path.join("{index_dir}", "transcriptome.fasta")
     params:
+        GTF_gtf = config["gtf"],
+        FASTA_genome = config["genome"],
         LOG_cluster_log = \
-            os.path.join("{output_dir}", "cluster_log/extract_transcriptome.log"),
+            os.path.join("{index_dir}", "cluster_log", \
+                "extract_transcriptome.log"),
         queue = "30min",
         time = "00:10:00"
+    resources:
+        threads = 1,
+        mem = 5000
     log:
         LOG_local_log = \
-            os.path.join("{output_dir}", "local_log/extract_transcriptome.log"),
-    resources:
-        threads = 8,
-        mem = 5000
+            os.path.join("{index_dir}", "local_log", \
+                "extract_transcriptome.log")
+    benchmark:
+        os.path.join("{index_dir}", "local_log", \
+            "extract_transcriptome_benchmark.log")
     conda:
         "env_yaml/quantification.yaml"
     shell:
         """
-        gffread {input.gtf} \
-        -g {input.genome} \
-        -w {output.transcriptome} \
+        gffread {params.GTF_gtf} \
+        -g {params.FASTA_genome} \
+        -w {output.FASTA_transcriptome} \
         &> {log.LOG_local_log};
         """
 
+rule extract_decoys:
+    input:
+        TMP_index = os.path.join("{index_dir}", "index_dir_created")
+    output:
+        TXT_decoys = \
+            os.path.join("{index_dir}", "decoys.txt")
+    params:
+        FASTA_genome = config["genome"]
+    log:
+        LOG_local_log = \
+            os.path.join("{index_dir}", "local_log", \
+                "extract_decoys.log")
+    benchmark:
+        os.path.join("{index_dir}", "local_log", \
+            "extract_decoys_benchmark.log")
+    shell:
+        """
+        (grep "^>" <{params.FASTA_genome} \
+        | cut -d " " -f 1 > {output.TXT_decoys} && \
+        sed -i.bak -e 's/>//g' {output.TXT_decoys}) \
+        2> {log.LOG_local_log};        
+        """
 
-
-
-
-
-
-
-
-
+rule concatenate_transcriptome_and_genome:
+    input:
+        FASTA_transcriptome = \
+            os.path.join("{index_dir}", "transcriptome.fasta")
+    output:
+        FASTA_merged = \
+            os.path.join("{index_dir}", "genome_transcriptome.fasta")
+    params:
+        FASTA_genome = config["genome"]
+    log:
+        LOG_local_log = \
+            os.path.join("{index_dir}", "local_log", \
+                "concatenate_transcriptome_and_genome.log")
+    benchmark:
+        os.path.join("{index_dir}", "local_log", \
+            "concatenate_transcriptome_and_genome_benchmark.log")
+    shell:
+        """
+        cat {input.FASTA_transcriptome} {params.FASTA_genome} \
+        1> {output.FASTA_merged} \
+        2> {log.LOG_local_log};   
+        """
 
 rule index_transcriptome:
     input:
-        transcriptome = config["output_dir"] + "/transcriptome.fasta"
+        TXT_decoys = \
+            os.path.join("{index_dir}", "decoys.txt"),
+        FASTA_merged = \
+            os.path.join("{index_dir}", "genome_transcriptome.fasta")
     output:
-        transcriptome_index = directory("{output_dir}" + "/transcriptome_index")
+        DIR_transcriptome = \
+            directory(os.path.join("{index_dir}", "index"))
     params:
         LOG_cluster_log = \
-            os.path.join("{output_dir}", "cluster_log/index_transcriptome.log"),
-        queue = "30min",
-        time = "00:15:00"
-    log:
-        LOG_local_log = \
-            os.path.join("{output_dir}", "local_log/index_transcriptome.log"),
+            os.path.join("{index_dir}", "cluster_log", \
+                "index_transcriptome.log"),
+        queue = "6hours",
+        time = "06:00:00",
     resources:
         threads = 4,
-        mem = 10000
+        mem = 50000
+    log:
+        LOG_local_log = \
+            os.path.join("{index_dir}", "local_log", \
+                "index_transcriptome.log")
+    benchmark:
+        os.path.join("{index_dir}", "local_log", \
+            "index_transcriptome_benchmark.log")
     conda:
         "env_yaml/quantification.yaml"
     shell:
         """
         salmon index \
-        -t {input.transcriptome} \
-        -i {output.transcriptome_index} \
-        --type quasi \
-        -k 31 \
+        -t {input.FASTA_merged} \
+        -d {input.TXT_decoys} \
+        --threads {resources.threads} \
+        -i {output.DIR_transcriptome} \
         &> {log.LOG_local_log};
         """
 
-#################################################################################
+##############################################################################
 ### Quantify transcripts expression
-#################################################################################
+##############################################################################
 
 rule salmon_quantify:
     input:
-        index = config["output_dir"] + "/transcriptome_index",
-        gtf = config["gtf"]
+        TMP_output = os.path.join("{output_dir}", "output_dir_created"),
+        DIR_transcriptome = \
+            expand(os.path.join("{index_dir}", "index"), index_dir=config["transcriptome_index"])
+
+        #DIR_transcriptome = \
+        #    os.path.join("{output_dir}", "transcriptome_index")
     output:
-        salmon_out = "{output_dir}" + "/{sample}/quant.sf",
+        TSV_salmon_out = \
+            os.path.join("{output_dir}", "{sample}", "quant.sf")
     params:
-        mate_1 = lambda wildcards: get_mate_1(wildcards),
-        mate_2 = lambda wildcards: get_mate_2(wildcards),
+        GTF_gtf = config["gtf"],
+        STRING_mate_1 = lambda wildcards: get_mate_1(wildcards),
+        STRING_mate_2 = lambda wildcards: get_mate_2(wildcards),
         libType = "A",
         seqtype = config["seqtype"],
-        salmon_dir = config["output_dir"] + "/{sample}",
+        DIR_salmon_dir = os.path.join("{output_dir}", "{sample}"),
         LOG_cluster_log = \
-            os.path.join("{output_dir}", "cluster_log/salmon_quantify_{sample}.log"),
+            os.path.join("{output_dir}", "cluster_log", \
+                "salmon_quantify_{sample}.log"),
         queue = "6hours",
         time = "02:00:00",
     resources:
-        threads = 8,
-        mem = 10000
+        threads = 4,
+        mem = 50000
     log:
         LOG_local_log = \
-            os.path.join("{output_dir}", "local_log/salmon_quantify_{sample}.log"),
-    threads:    6
+            os.path.join("{output_dir}", "local_log", \
+                "salmon_quantify_{sample}.log")
+    benchmark:
+        os.path.join("{output_dir}", "local_log", \
+            "salmon_quantify_{sample}_benchmark.log")
     conda:
         "env_yaml/quantification.yaml"
     shell:
@@ -292,84 +267,89 @@ rule salmon_quantify:
         if [ {params.seqtype} == paired_end ]
         then
             salmon quant \
-            --index {input.index} \
-            --geneMap {input.gtf} \
+            --index {input.DIR_transcriptome} \
+            --geneMap {params.GTF_gtf} \
             --libType {params.libType} \
-            -1 {params.mate_1} \
-            -2 {params.mate_2} \
+            -1 {params.STRING_mate_1} \
+            -2 {params.STRING_mate_2} \
             --seqBias \
             --threads {threads} \
-            --output {params.salmon_dir} \
+            --output {params.DIR_salmon_dir} \
             &> {log.LOG_local_log};
         else
             salmon quant \
-            --index {input.index} \
-            --geneMap {input.gtf} \
+            --index {input.DIR_transcriptome} \
+            --geneMap {params.GTF_gtf} \
             --libType {params.libType} \
-            -r {params.mate_1} \
+            -r {params.STRING_mate_1} \
             --seqBias \
             --threads {threads} \
-            --output {params.salmon_dir} \
+            --output {params.DIR_salmon_dir} \
             &> {log.LOG_local_log};
-        fi        
+        fi
        """
+
+##############################################################################
+### Merged expressed data
+##############################################################################
 
 rule merge_TPM_tables:
     input:
-        salmon_out = expand(config["output_dir"] + "/{sample}/quant.sf", output_dir=config["output_dir"], sample=get_samples())
+        TSV_salmon_out = \
+            expand(os.path.join("{output_dir}", "{sample}", "quant.sf"), \
+                output_dir=config["output_dir"], sample=get_samples())
     output:
-        all_genes = "{output_dir}" + "/genes.tsv",
-        all_transcripts = "{output_dir}" + "/transcripts.tsv",
-    params:
-        queue = "30min",
-        time = "00:05:00"
+        TSV_all_genes = os.path.join("{output_dir}", "genes.tsv"),
+        TSV_all_transcripts = os.path.join("{output_dir}", "transcripts.tsv"),
     log:
         LOG_local_log = \
-            os.path.join("{output_dir}", "local_log/merge_TPM_tables.log"),
-    resources:
-        threads = 1,
-        mem = 5000
+            os.path.join("{output_dir}", "local_log", \
+                "merge_TPM_tables.log")
     run:
+        # merge TPM values for all genes/transcripts for all samples
         quant_genes_list = []
         quant_transcripts_list = []
-        design_table = pd.read_csv(config["design_table"],sep="\t")
+        design_table = pd.read_csv(config["design_table"], sep="\t")
         for i,row in design_table.iterrows():
-            path = os.path.join(config["output_dir"],row["sample"],"quant.sf")
-            df = pd.read_csv(path,sep="\t",index_col=0)[["TPM"]]
+            path = \
+                os.path.join(config["output_dir"], row["sample"], "quant.sf")
+            df = pd.read_csv(path, sep="\t", index_col=0)[["TPM"]]
             df.columns = [row["sample"]]
             quant_transcripts_list.append(df)
-            path = os.path.join(config["output_dir"],row["sample"],"quant.genes.sf")
-            df = pd.read_csv(path,sep="\t",index_col=0)[["TPM"]]
+            path = \
+                os.path.join(\
+                    config["output_dir"], row["sample"], "quant.genes.sf")
+            df = pd.read_csv(path, sep="\t", index_col=0)[["TPM"]]
             df.columns = [row["sample"]]
             quant_genes_list.append(df)
-        x = pd.concat(quant_transcripts_list,axis=1)
-        x.index.name = "ID"
-        x.to_csv(output.all_transcripts,sep="\t")
-        x = pd.concat(quant_genes_list,axis=1)
-        x.index.name = "ID"
-        x.to_csv(output.all_genes,sep="\t")
+        t_df = pd.concat(quant_transcripts_list, axis=1)
+        t_df.index.name = "ID"
+        t_df.to_csv(output.TSV_all_transcripts, sep="\t")
+        g_df = pd.concat(quant_genes_list, axis=1)
+        g_df.index.name = "ID"
+        g_df.to_csv(output.TSV_all_genes, sep="\t")
 
-#################################################################################
+##############################################################################
 ### DTU + DGE workflow
-#################################################################################
+##############################################################################
 
 rule prepare_table_for_R_workflow:
     input:
-        salmon_out = expand(config["output_dir"] + "/{sample}/quant.sf", output_dir=config["output_dir"], sample=get_samples())
+        TSV_salmon_out = \
+            expand(os.path.join("{output_dir}", "{sample}", "quant.sf"), \
+                output_dir=config["output_dir"], sample=get_samples())
     output:
-        table = "{output_dir}"+ "/workflow_table.csv"
-    params:
-        queue = "30min",
-        time = "00:05:00"
+        CSV_samples_table = \
+            os.path.join("{output_dir}", "workflow_table.csv")
     log:
         LOG_local_log = \
-            os.path.join("{output_dir}", "local_log/prepare_table.log"),
-    resources:
-        threads = 1,
-        mem = 5000
+            os.path.join("{output_dir}", "local_log", \
+                "prepare_table_for_R_workflow.log")
     run:
-        design_table = pd.read_csv(config["design_table"],sep="\t")
-        with open(output.table,"w") as csv_table:
+        # parse design table and create a simplified version for the
+        # workflow below
+        design_table = pd.read_csv(config["design_table"], sep="\t")
+        with open(output.CSV_samples_table, "w") as csv_table:
             csv_table.write("sample_id,condition\n")
             for i,row in design_table.iterrows():
                 condition = 1 if row["condition"]=="untreated" else 2
@@ -377,41 +357,55 @@ rule prepare_table_for_R_workflow:
 
 rule DTU_and_DGE_workflow:
     input:
-        table = config["output_dir"] + "/workflow_table.csv",
-        SCRIPT = os.path.join(config["scripts_directory"], "mb_DTU_and_DGE_workflow.R")
+        CSV_samples_table = \
+            os.path.join("{output_dir}", "workflow_table.csv")
     output:
-        edgeR = "{output_dir}" + "/edgeR_DGE.tsv",
-        DESeq = "{output_dir}" + "/DESeq_DGE.tsv",
-        DRIMSeq = "{output_dir}" + "/StageR_DRIMSeq.tsv",
-        DEXSeq = "{output_dir}" + "/StageR_DEXSeq.tsv",
+        TSV_edgeR = os.path.join("{output_dir}", "edgeR_DGE.tsv"),
+        TSV_DESeq = os.path.join("{output_dir}", "DESeq_DGE.tsv"),
+        TSV_DRIMSeq = os.path.join("{output_dir}", "StageR_DRIMSeq.tsv"),
+        TSV_DEXSeq = os.path.join("{output_dir}", "StageR_DEXSeq.tsv")
     params:
-        out_dir = config["output_dir"],
-        minimal_gene_expression = config["minimal_gene_expression"],
-        minimal_transcript_expression = config["minimal_transcript_expression"],
-        minimal_transcripts_proportion = config["minimal_transcripts_proportion"],
+        SCRIPT = \
+            os.path.join(\
+                config["scripts_directory"], "mb_DGE_DTU_workflow.r"),
+        DIR_out_dir = "{output_dir}",
+        minimal_gene_expression = \
+            config["minimal_gene_expression"],
+        minimal_transcript_expression = \
+            config["minimal_transcript_expression"],
+        minimal_transcripts_proportion = \
+            config["minimal_transcripts_proportion"],
         alpha = config["statistical_alpha"],
-        gtf = config["gtf"],
+        GTF_gtf = config["gtf"],
         LOG_cluster_log = \
-            os.path.join("{output_dir}", "cluster_log/DTU_and_DGE_workflow.log"),
+            os.path.join("{output_dir}", "cluster_log", \
+                "DTU_and_DGE_workflow.log"),
         queue = "6hours",
         time = "06:00:00"
-    log:
-        LOG_local_log = \
-            os.path.join("{output_dir}", "local_log/DTU_and_DGE_workflow.log"),
     resources:
         threads = 1,
         mem = 10000
+    log:
+        LOG_local_log = \
+            os.path.join("{output_dir}", "local_log", \
+                "DTU_and_DGE_workflow.log")
+    benchmark:
+        os.path.join("{output_dir}", "local_log", \
+            "DTU_and_DGE_workflow_benchmark.log")
     conda:
         "env_yaml/dgedtu.yaml"
     shell:
         """
-        Rscript {input.SCRIPT} \
-        --gtf {params.gtf} \
-        --design_table {input.table} \
-        --output_dir {params.out_dir} \
+        Rscript {params.SCRIPT} \
+        --gtf {params.GTF_gtf} \
+        --design_table {input.CSV_samples_table} \
+        --output_dir {params.DIR_out_dir} \
         --alpha {params.alpha} \
-        --minimal_gene_expression {params.minimal_gene_expression} \
-        --minimal_transcript_expression {params.minimal_transcript_expression} \
-        --minimal_proportion {params.minimal_transcripts_proportion} \
+        --minimal_gene_expression \
+        {params.minimal_gene_expression} \
+        --minimal_transcript_expression \
+        {params.minimal_transcript_expression} \
+        --minimal_proportion \
+        {params.minimal_transcripts_proportion} \
         &> {log.LOG_local_log};
         """
