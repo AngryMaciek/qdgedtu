@@ -1,12 +1,10 @@
-# Snakemake pipeline for quantification of transcripts expression, differential gene expression and differential transcripts usage from RNA-Seq data
+# Snakemake pipeline for transcripts expression analyses
 *Maciej_Bak  
 Swiss_Institute_of_Bioinformatics*
 
-Transcript quantification with salmon;  
-Differential Gene Expression and Differential Transcripts Usage according to:  
-https://f1000research.com/articles/7-952/v3
-
-ADD LINKS
+This is a small snakemake pipeline I have put together for quantification of transcripts expression, differential gene expression and differential transcripts usage from RNA-Seq data.  
+Transcript quantification is performed with [salmon](https://combine-lab.github.io/salmon/).  
+Differential Gene Expression ([DESeq](https://bioconductor.org/packages/release/bioc/html/DESeq.html) and [edgeR](https://bioconductor.org/packages/release/bioc/html/edgeR.html)) and Differential Transcripts Usage ([DEXSeq](https://bioconductor.org/packages/release/bioc/html/DEXSeq.html) and [DRIMSeq](https://bioconductor.org/packages/release/bioc/html/DRIMSeq.html)) according to: https://f1000research.com/articles/7-952/v3
 
 ## Snakemake pipeline execution
 Snakemake is a workflow management system that helps to create and execute data processing pipelines. It requires Python 3 and can be most easily installed via the bioconda package from the anaconda cloud service.
