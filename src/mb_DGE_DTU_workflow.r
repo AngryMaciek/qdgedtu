@@ -112,6 +112,7 @@ outdir = strsplit(opt$output_dir,"/")[[1]][1]
 plot_dir = paste(opt$output_dir,"DRIMSeq_plots",sep="/")
 dir.create(opt$output_dir)
 dir.create(plot_dir)
+print(outdir)
 
 
 ############################################
@@ -140,7 +141,7 @@ dir.create(plot_dir)
 samps <- read.csv(opt$design_table)
 samps$condition <- factor(samps$condition)
 # ...and the quantification files
-files <- file.path(outdir, samps$sample_id, "quant.sf")
+files <- file.path(opt$output_dir, samps$sample_id, "quant.sf")
 names(files) <- samps$sample_id
 
 # We can then import transcript-level counts using tximport.
