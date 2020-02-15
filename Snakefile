@@ -273,6 +273,9 @@ rule salmon_quantify:
             -1 {params.STRING_mate_1} \
             -2 {params.STRING_mate_2} \
             --seqBias \
+            --gcBias \
+            --posBias \
+            --validateMappings \
             --threads {threads} \
             --output {params.DIR_salmon_dir} \
             &> {log.LOG_local_log};
@@ -283,6 +286,8 @@ rule salmon_quantify:
             --libType {params.libType} \
             -r {params.STRING_mate_1} \
             --seqBias \
+            --posBias \
+            --validateMappings \
             --threads {threads} \
             --output {params.DIR_salmon_dir} \
             &> {log.LOG_local_log};
