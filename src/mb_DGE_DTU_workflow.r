@@ -5,12 +5,18 @@
 #
 #   Based on: https://f1000research.com/articles/7-952/v3
 #
+#   The following script simply encapsulates the code and text
+#   of the research article. Original work is licensed under Artistic-2.0.
+#
+#   The main changes include parsing CLI options and
+#   modified output directory structure.
+#
 #   AUTHOR: Maciej_Bak
 #   AFFILIATION: Swiss_Institute_of_Bioinformatics
-#   AFFILIATION: Zavolan Group_Biozentrum_University_of_Basel
+#   AFFILIATION: Biozentrum_University_of_Basel
 #   CONTACT: wsciekly.maciek@gmail.com
 #   CREATED: 25-11-2019
-#   LICENSE: GPL_v3.0
+#   LICENSE: Apache_2.0
 #   USAGE:
 #   Rscript mb_DGE_DTU_workflow.r --gtf {} --design_table {} --output_dir {} \
 #   --alpha {} --minimal_gene_expression {} \
